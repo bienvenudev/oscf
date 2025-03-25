@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Open Source Contribution Finder</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Marked library for rendering markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Open Source Contribution Finder</h1>
+        <button class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+      </header>
+
+      <div class="app-description">
+        <p>
+          Find beginner-friendly open source projects to contribute to. Search
+          by programming language, filter for "good first issue" labels, and
+          explore project documentation with AI-powered summaries.
+        </p>
+      </div>
+
+      <div class="search-container">
+        <input
+          type="text"
+          id="language"
+          placeholder="Programming language (e.g: JavaScript, Python)"
+        />
+        <button id="search">Search Repositories</button>
+      </div>
+
+      <div class="app-controls">
+        <div class="controls-left">
+          <select id="sort">
+            <option value="stars">Sort by Stars</option>
+            <option value="forks">Sort by Forks</option>
+            <option value="updated">Sort by Recent Activity</option>
+          </select>
+          <label>
+            <input type="checkbox" id="goodFirstIssue" /> Show only "good first
+            issue" repositories
+          </label>
+        </div>
+        <div class="controls-right">
+          <button id="show-favorites">My Favorites</button>
+          <button id="random-repos">Random Repositories</button>
+        </div>
+      </div>
+
+      <div id="results" class="repo-grid"></div>
+      <div id="loading" class="loading" style="display: none">
+        Loading repositories...
+      </div>
+      <div id="error" class="error" style="display: none"></div>
+    </div>
+
+    <!-- README Modal -->
+    <div id="readmeModal" class="modal">
+      <div id="modalContent" class="modal-content"></div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
