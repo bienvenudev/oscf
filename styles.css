@@ -565,8 +565,7 @@ details[open] > summary {
   }
 
   input,
-  select,
-  button {
+  select {
     width: 100%;
   }
 
