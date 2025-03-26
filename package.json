@@ -1,0 +1,19 @@
+{
+  "name": "open-source-contribution-finder",
+  "version": "1.0.0",
+  "description": "Find beginner-friendly open source projects to contribute to",
+  "main": "server.js",
+  "scripts": {
+    "start": "NODE_ENV=production node server.js",
+    "dev": "NODE_ENV=development node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.9"
+  }
+}
