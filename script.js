@@ -1,5 +1,3 @@
-// API Configuration
-
 const GITHUB_API_BASE = "https://api.github.com";
 const HUGGINGFACE_API_BASE =
   "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
@@ -21,13 +19,12 @@ const POPULAR_LANGUAGES = [
   "c#",
 ];
 
-
-// State management
+// state management
 let currentTheme = localStorage.getItem("theme") || "light";
 let favoriteRepos = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
 document.documentElement.setAttribute("data-theme", currentTheme);
 
-// DOM Elements
+// dom elemts
 const themeToggle = document.querySelector(".theme-toggle");
 const searchButton = document.getElementById("search");
 const languageInput = document.getElementById("language");
@@ -41,7 +38,7 @@ const modalContent = document.getElementById("modalContent");
 const favoritesButton = document.getElementById("show-favorites");
 const randomReposButton = document.getElementById("random-repos");
 
-// Theme Toggle
+// toggle theme
 themeToggle.addEventListener("click", () => {
   currentTheme = currentTheme === "light" ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", currentTheme);
@@ -49,7 +46,7 @@ themeToggle.addEventListener("click", () => {
   themeToggle.textContent = currentTheme === "light" ? "🌙" : "☀️";
 });
 
-// Cache Management
+// manage cache
 const cache = {
   set: (key, data) => {
     const cacheData = {
@@ -70,26 +67,42 @@ const cache = {
     return data;
   },
   setReadme: (key, data) => {
-    const cacheData = {
-      data,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(README_CACHE_PREFIX + key, JSON.stringify(cacheData));
+    try {
+      // clean up first
+      cleanupCache();
+
+      const cacheData = {
+        data,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(
+        README_CACHE_PREFIX + key,
+        JSON.stringify(cacheData)
+      );
+    } catch (error) {
+      console.warn("Cache storage failed:", error);
+      // continue without caching
+    }
   },
   getReadme: (key) => {
-    const cached = localStorage.getItem(README_CACHE_PREFIX + key);
-    if (!cached) return null;
+    try {
+      const cached = localStorage.getItem(README_CACHE_PREFIX + key);
+      if (!cached) return null;
 
-    const { data, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > CACHE_DURATION) {
-      localStorage.removeItem(README_CACHE_PREFIX + key);
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_DURATION) {
+        localStorage.removeItem(README_CACHE_PREFIX + key);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.warn("Cache retrieval failed:", error);
       return null;
     }
-    return data;
   },
 };
 
-// Favorites Management
+// manage favorites
 const favorites = {
   add: (repo) => {
     if (!favoriteRepos.some((r) => r.id === repo.id)) {
@@ -118,7 +131,7 @@ const favorites = {
   },
 };
 
-// GitHub API Functions
+// github api functions
 async function searchRepositories(language, sort, goodFirstIssue) {
   const cacheKey = `${language}_${sort}_${goodFirstIssue}`;
   const cachedData = cache.get(cacheKey);
@@ -150,7 +163,7 @@ async function searchRepositories(language, sort, goodFirstIssue) {
 }
 
 async function fetchRandomRepositories() {
-  // Get a random language from popular languages
+  // get a random language from popular languages
   const randomLanguage =
     POPULAR_LANGUAGES[Math.floor(Math.random() * POPULAR_LANGUAGES.length)];
   return searchRepositories(randomLanguage, "stars", false);
@@ -158,10 +171,10 @@ async function fetchRandomRepositories() {
 
 async function fetchReadme(owner, repo) {
   const cacheKey = `${owner}_${repo}`;
-  const cachedReadme = cache.getReadme(cacheKey);
-  if (cachedReadme) return cachedReadme;
-
   try {
+    const cachedReadme = cache.getReadme(cacheKey);
+    if (cachedReadme) return cachedReadme;
+
     const response = await fetch(
       `${GITHUB_API_BASE}/repos/${owner}/${repo}/readme`,
       {
@@ -178,7 +191,14 @@ async function fetchReadme(owner, repo) {
     const readmeContent = await response.text();
     const summary = await summarizeText(readmeContent);
     const result = { content: readmeContent, summary };
-    cache.setReadme(cacheKey, result);
+
+    // Try caching
+    try {
+      cache.setReadme(cacheKey, result);
+    } catch (error) {
+      console.warn("Failed to cache README:", error);
+    }
+
     return result;
   } catch (error) {
     console.error("Error fetching README:", error);
@@ -188,7 +208,8 @@ async function fetchReadme(owner, repo) {
 
 async function fetchContributing(owner, repo) {
   try {
-    const response = await fetch(
+    // try root path first
+    let response = await fetch(
       `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/CONTRIBUTING.md`,
       {
         headers: {
@@ -197,8 +218,20 @@ async function fetchContributing(owner, repo) {
       }
     );
 
+    // if root path fails, try .github path
     if (!response.ok) {
-      return null; // No CONTRIBUTING.md found, which is okay
+      response = await fetch(
+        `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/.github/CONTRIBUTING.md`,
+        {
+          headers: {
+            Accept: "application/vnd.github.v3.raw",
+          },
+        }
+      );
+    }
+
+    if (!response.ok) {
+      return null; // no contributing.md found
     }
 
     const contributingContent = await response.text();
@@ -232,29 +265,31 @@ async function fetchRepoIssues(owner, repo) {
   }
 }
 
-
 async function summarizeText(text, isContributing = false) {
+  // use the express server endpoint
+  const endpoint = " http://localhost:3001/api/summarize";
+
   try {
-    const response = await fetch(HUGGINGFACE_API_BASE, {
+    console.log("Sending summarize request to:", endpoint);
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer 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",
       },
       body: JSON.stringify({
-        inputs: text.substring(0, 1024), // Limit text length for API
-        parameters: {
-          max_length: isContributing ? 150 : 100, // Contributing gets a more detail
-          min_length: 30,
-        },
+        text: text.substring(0, 1024),
+        isContributing,
       }),
     });
 
     if (!response.ok) {
-      throw new Error("Summarization failed");
+      const errorData = await response.json();
+      console.error("Summarization failed:", errorData);
+      throw new Error(errorData.error || "Summarization failed");
     }
 
     const data = await response.json();
+    console.log("Received summarize response:", data);
     return data[0].summary_text;
   } catch (error) {
     console.error("Error summarizing text:", error);
@@ -262,7 +297,7 @@ async function summarizeText(text, isContributing = false) {
   }
 }
 
-// Utility function to render markdown as HTML
+// utils function to render markdown as HTML
 function renderMarkdown(markdownText) {
   if (!markdownText) return "";
 
@@ -448,10 +483,9 @@ async function showReadme(owner, repo) {
     '<div class="summary-loading">Loading README...</div>';
 
   try {
-    const [readmeData, contributingData] = await Promise.all([
-      fetchReadme(owner, repo),
-      fetchContributing(owner, repo),
-    ]);
+    // Handle each promise separately for better error handling
+    const readmeData = await fetchReadme(owner, repo);
+    const contributingData = await fetchContributing(owner, repo);
 
     if (!readmeData) {
       modalContent.innerHTML = '<div class="error">Failed to load README</div>';
@@ -460,18 +494,25 @@ async function showReadme(owner, repo) {
 
     // Render the README content with marked
     const readmeHtml = renderMarkdown(readmeData.content);
+    const readmeSummary = readmeData.summary
+      ? renderMarkdown(readmeData.summary)
+      : "Summary not available";
 
     // Prepare contributing HTML if available
     let contributingHtml = "";
     if (contributingData) {
       const contributingHtmlContent = renderMarkdown(contributingData.content);
+      const contributingDataSummary = contributingData.summary
+        ? renderMarkdown(contributingData.summary)
+        : "Summary not available";
+
       contributingHtml = `
         <div class="contributing-section">
           <h2>How to Contribute</h2>
           <div class="content-group">
             <div class="section-summary">
               <h3>Summary</h3>
-              <p>${contributingData.summary}</p>
+              <p id="contributing-summary">${contributingDataSummary}</p>
             </div>
             <details>
               <summary>View Full Contributing Guidelines</summary>
@@ -491,7 +532,7 @@ async function showReadme(owner, repo) {
               <div class="content-group">
                 <div class="section-summary">
                   <h3>Summary</h3>
-                  <p>${readmeData.summary}</p>
+                  <p id="readme-summary">${readmeSummary}</p>
                 </div>
                 <details>
                   <summary>View Full README</summary>
@@ -510,6 +551,7 @@ async function showReadme(owner, repo) {
       button.addEventListener("click", closeModalFunction);
     });
   } catch (error) {
+    console.error("Error in showReadme:", error);
     modalContent.innerHTML = '<div class="error">Failed to load README</div>';
   }
 }
@@ -653,4 +695,23 @@ document.addEventListener("DOMContentLoaded", loadRandomRepositories);
 // Add favorite button event handler if it exists
 if (favoritesButton) {
   favoritesButton.addEventListener("click", showFavorites);
+}
+
+// Added this to clean old cache entries
+function cleanupCache() {
+  try {
+    // Clean readme cache
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith(README_CACHE_PREFIX)) {
+        const cached = localStorage.getItem(key);
+        const { timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > CACHE_DURATION) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Cache cleanup failed:", error);
+  }
 }
