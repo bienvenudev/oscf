@@ -52,7 +52,7 @@ app.post("/api/summarize", async (req, res) => {
         body: JSON.stringify({
           inputs: text,
           parameters: {
-            max_length: isContributing ? 150 : 100,
+            max_length: 150,
             min_length: 30,
           },
         }),
