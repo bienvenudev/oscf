@@ -4,7 +4,7 @@ A web application that helps developers find beginner-friendly GitHub repositori
 
 ## 📹 Demo Video
 
-[Watch the OSCF Demo on YouTube](https://www.youtube.com/watch?v=TTCtIWDNsLg)
+[Watch the OSCF Demo on YouTube](https://www.youtube.com/watch?v=teMRu6fwwAY)
 
 ## 🔗 Live Site
 
